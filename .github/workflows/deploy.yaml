@@ -21,13 +21,27 @@ jobs:
       - name: Run tests
         run: docker run -e CI=true cygnetops/react-test npm test
 
+      - name: Debugging information before zip
+        run: |
+          pwd
+          ls -la
+          
       - name: Generate deployment package
         run: zip -r deploy.zip . -x '*.git*' -x 'node_modules*'
+        
+      - name: Debugging information after zip
+        run: |
+          ls -la
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Debugging information before deployment
+        run: |
+          pwd
+          ls -la
+          
       - name: Deploy to Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
         with:
@@ -39,3 +53,7 @@ jobs:
           region: us-west-1
           version_label: ${{ github.sha }}
           deployment_package: deploy.zip
+          
+      - name: Debugging information after deployment
+        run: |
+          ls -la
