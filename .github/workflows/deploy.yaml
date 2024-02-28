@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      # Define the artifact name to be used in the 'deploy' job
+      artifacts: ${{ needs.build.outputs.artifacts }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -28,20 +31,38 @@ jobs:
           
       - name: Generate deployment package
         run: zip -r deploy.zip . -x '*.git*' -x 'node_modules*'
-        
+
       - name: Debugging information after zip
         run: |
           ls -la
 
+      - name: Upload deployment package as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: deploy-zip
+          path: deploy.zip
+
   deploy:
-    runs-on: ubuntu-latest
     needs: build
+    runs-on: ubuntu-latest
     steps:
       - name: Debugging information before deployment
         run: |
           pwd
           ls -la
-          
+
+      - name: Download deployment package artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: deploy-zip
+          path: ${{ github.workspace }}
+
+      - name: Debugging information after download
+        run: |
+          ls -la
+          unzip deploy.zip -d deploy_unzip
+          ls -la deploy_unzip
+
       - name: Deploy to Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
         with:
@@ -52,8 +73,4 @@ jobs:
           existing_bucket_name: elasticbeanstalk-us-west-1-188358956076
           region: us-west-1
           version_label: ${{ github.sha }}
-          deployment_package: deploy.zip
-          
-      - name: Debugging information after deployment
-        run: |
-          ls -la
+          deployment_package: deploy_unzip/deploy.zip
