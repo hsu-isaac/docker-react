@@ -1,5 +1,4 @@
 name: Deploy Frontend
-
 on:
   push:
     branches:
@@ -8,63 +7,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      # Define the artifact name to be used in the 'deploy' job
-      artifacts: ${{ needs.build.outputs.artifacts }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+      - run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+      - run: docker build -t cygnetops/react-test -f Dockerfile.dev .
+      - run: docker run -e CI=true cygnetops/react-test npm test -- --coverage --watchAll=false
 
-      - name: Log in to DockerHub
-        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build Docker image
-        run: docker build -t cygnetops/react-test -f Dockerfile.dev .
-
-      - name: Run tests
-        run: docker run -e CI=true cygnetops/react-test npm test -- --coverage --watchAll=false
-
-      - name: Debugging information before zip
-        run: |
-          pwd
-          ls -la
-          
       - name: Generate deployment package
-        run: zip -r deploy.zip . -x '*.git*' -x 'node_modules*'
+        run: zip -r deploy.zip . -x '*.git*'
 
-      - name: Debugging information after zip
-        run: |
-          ls -la
-
-      - name: Upload deployment package as artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: deploy-zip
-          path: deploy.zip
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debugging information before deployment
-        run: |
-          pwd
-          ls -la
-
-      - name: Download deployment package artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: deploy-zip
-          path: ${{ github.workspace }}
-
-      - name: Debugging information after download
-        run: |
-          ls -la
-          unzip deploy.zip -d deploy_unzip
-          ls -la deploy_unzip
-
-      - name: Deploy to Elastic Beanstalk
-        uses: einaregilsson/beanstalk-deploy@v21
+      - name: Deploy to EB
+        uses: einaregilsson/beanstalk-deploy@v18
         with:
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
           aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
